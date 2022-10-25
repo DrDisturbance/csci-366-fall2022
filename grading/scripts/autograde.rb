@@ -1,4 +1,4 @@
-#!/home/carson/.rvm/rubies/ruby-2.6.2/bin/ruby -w
+#!ruby
 
 require 'octokit'
 require 'csv'
@@ -43,7 +43,7 @@ def for_each_student_dir
 end
 
 def student_dir(student)
-  student["FIRST_NAME"].downcase + "_" + student["LAST_NAME"].downcase
+  student["FIRST_NAME"].strip.gsub(" ", "_").downcase + "_" + student["LAST_NAME"].strip.gsub(" ", "_").downcase
 end
 
 def maven_test(pattern, output_file)
@@ -97,7 +97,7 @@ when "grade"
   assignment = ARGV[1]
   filter = ARGV[2]
   case assignment
-  when "hwk2"
+  when "chwk"
     for_each_student_dir do |first, last, dir|
       if filter and not "#{first} #{last}".downcase.include?(filter.downcase)
         next
@@ -105,12 +105,13 @@ when "grade"
       puts "Grading #{assignment} for #{first} #{last} in #{dir}"
       pull
       make_grading_dir
-      if not Dir.exist? 'homework_2'
+      if not Dir.exist? 'c/homework'
+        puts "c/homework not found..."
         next
       end
-      Dir.chdir 'homework_2' do
-        cmake "../grading/homework_2_results.txt"
-        maybe_exec "./homework_2", "../grading/homework_2_results.txt"
+      Dir.chdir 'c/homework' do
+        cmake "../../grading/homework_2_results.txt"
+        maybe_exec "./homework_2", "../../grading/homework_2_results.txt"
       end
       push_grading
     end
@@ -172,17 +173,29 @@ when "grade"
   else
     puts "Unknown assignment: #{assignment} (expected hwk2)"
   end
+when "touch"
+  for_each_student_dir do |first, last, dir|
+    puts "touching file for #{first} #{last} in #{dir}"
+    unless grading_dir_exist?
+      puts("Grading directory does not exist!")
+      next
+    end
+    pull
+    `echo "Congrats..." > grading/autograder_is_working.txt`
+    push_grading
+  end
 when "clone_repos"
   each_student do |student|
     student_dir = student_dir(student)
     if Dir.exist? student_dir
       puts "Directory #{student_dir} already exists, skipping..."
     else
-      repo_url = student["REPO"].gsub("https://", "")
+      repo_url = student["REPO"].gsub("https://", "").strip
       if repo_url.nil? || repo_url.strip.empty?
         puts("No git URL for #{student["FIRST_NAME"]} #{student["LAST_NAME"]}")
         next
       end
+      # puts("git clone https://#{git_username}:#{git_token}@#{repo_url} repos/#{student_dir}")
       `git clone https://#{git_username}:#{git_token}@#{repo_url} repos/#{student_dir}`
     end
   end
